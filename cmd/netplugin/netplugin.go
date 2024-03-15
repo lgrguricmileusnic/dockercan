@@ -2,15 +2,12 @@ package main
 
 import (
 	"dockercan/internal/driver"
-	"fmt"
 
 	"github.com/docker/go-plugins-helpers/network"
 )
 
 func main() {
-	d := driver.Driver{Name: "name"}
-	network.NewHandler(&d)
-
-	fmt.Println(d.Name)
-
+	d := driver.Driver{}
+	h := network.NewHandler(&d)
+	h.ServeTCP("dockercan", "127.0.0.1", "", nil)
 }
