@@ -8,8 +8,8 @@ import (
 )
 
 type Endpoint struct {
-	vxcanHost string
-	vxcanCont string
+	vxcanHidden    string
+	vxcanContainer string
 }
 
 type Network struct {
@@ -57,11 +57,17 @@ func (d *Driver) CreateEndpoint(rq *network.CreateEndpointRequest) (*network.Cre
 	net, ok := d.networks[nid]
 
 	if !ok {
-		return nil, fmt.Errorf("network with id %s does not exist", nid)
+		return nil, fmt.Errorf("CreateEndpoint: network with id %s does not exist", nid)
+	}
+	net.enpoints[eid] = Endpoint{vxcanHidden: fmt.Sprintf("hcan%s", eid[:6]), vxcanContainer: fmt.Sprintf("ccan%s", eid[:6])}
+
+	err := netns.CreateInterfacePair(net.enpoints[eid].vxcanHidden, net.enpoints[eid].vxcanContainer, netns.Vxcan)
+
+	if err != nil {
+		return nil, fmt.Errorf("CreateEndpoint: error creating interface pair : %s", err.Error())
 	}
 
-	net.enpoints[eid] = Endpoint{}
-	return nil, nil
+	return &network.CreateEndpointResponse{}, nil
 }
 
 func (d *Driver) DeleteEndpoint(*network.DeleteEndpointRequest) error {
