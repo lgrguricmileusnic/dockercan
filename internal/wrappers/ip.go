@@ -1,4 +1,4 @@
-package netns
+package wrappers
 
 import (
 	"os/exec"
@@ -27,8 +27,19 @@ func DeleteNetworkNamespace(name string) error {
 	return cmd.Run()
 }
 
-func CreateInterfacePair(peer1 string, peer2 string, ifType IfType) error {
+func CreateInterfacePair(ifName string, peerName string, ifType IfType) error {
 	// ip link add vxcan1 type vxcan peer name vxcan2
-	cmd := exec.Command(command, "link", "add", peer1, "type", ifType.String(), "peer", "name", peer2)
+	cmd := exec.Command(command, "link", "add", ifName, "type", ifType.String(), "peer", "name", peerName)
 	return cmd.Run()
+}
+
+func MoveInterfaceToNamespace(ifName string, nsName string) error {
+	cmd := exec.Command(command, "link", "set", ifName, "netns", nsName)
+	return cmd.Run()
+}
+
+func ExecCommandInNamespace(nsName string, cmd exec.Cmd) error {
+	// TODO:
+	// cmd := exec.Command()
+	return nil
 }

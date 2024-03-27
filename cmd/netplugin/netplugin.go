@@ -16,13 +16,19 @@ func main() {
 	flag.StringVar(&ip, "addr", ip, "IPv4 address with port")
 
 	flag.Parse()
-	d := driver.Driver{}
-	h := network.NewHandler(&d)
-
-	log.Printf("Starting docker CAN driver at %s\n", ip)
-	err := h.ServeTCP("dockercan", ip, "", nil)
+	dPtr, err := driver.NewDriver()
 
 	if err != nil {
-		log.Panicln(err)
+		log.Fatalln(err)
+	}
+
+	h := network.NewHandler(dPtr)
+
+	log.Printf("Starting docker CAN driver at %s\n", ip)
+
+	err = h.ServeTCP("dockercan", ip, "", nil)
+
+	if err != nil {
+		log.Fatal(err)
 	}
 }
