@@ -160,12 +160,12 @@ func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
 
 			err := cangww.AddRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true).Run()
 			if err != nil {
-				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanContainer, err.Error())
+				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanHidden, err.Error())
 			}
 
 			err = cangww.AddRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true).Run()
 			if err != nil {
-				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanContainer, err.Error())
+				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanHidden, err.Error())
 			}
 		}
 	}
