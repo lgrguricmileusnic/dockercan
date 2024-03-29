@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"dockercan/internal/wrappers/cangww"
 	"dockercan/internal/wrappers/ipw"
 	"fmt"
 	"log"
@@ -19,9 +20,10 @@ type Endpoint struct {
 }
 
 type Network struct {
-	ns       string
-	enpoints map[string]Endpoint
-	opts     NetworkOptions
+	ns        string
+	vcan      string
+	endpoints map[string]Endpoint
+	opts      NetworkOptions
 }
 
 type Driver struct {
@@ -40,10 +42,10 @@ func (d *Driver) GetCapabilities() (*network.CapabilitiesResponse, error) {
 }
 
 func (d *Driver) CreateNetwork(rq *network.CreateNetworkRequest) error {
-	// create namespace for hiding vxcan interfaces on the host
+	// create namespace for hiding vxcan/vcan interfaces on the host
 	log.Println("CreateNetwork: CreateNetwork received")
 	nsName := fmt.Sprintf("canns_%s", rq.NetworkID[:4])
-
+	vcanName := "canbus"
 	log.Printf("CreateNetwork: Creating network namespace %s", nsName)
 
 	err := ipw.CreateNetworkNamespace(nsName).Run()
@@ -53,7 +55,18 @@ func (d *Driver) CreateNetwork(rq *network.CreateNetworkRequest) error {
 
 	opts := ExtractNetworkOptions(rq.Options)
 
-	d.networks[rq.NetworkID] = Network{nsName, map[string]Endpoint{}, opts}
+	d.networks[rq.NetworkID] = Network{nsName, vcanName, map[string]Endpoint{}, opts}
+
+	if !opts.centralised {
+		// if not centralised, containers will be conected p2p using vxcan
+		return nil
+	}
+
+	err = ipw.CreateInterface(vcanName, ipw.Vcan).Run()
+	if err != nil {
+		return fmt.Errorf("CreateNetwork: error creating virtual bus interface in namespace %s: %s", nsName, err.Error())
+	}
+
 	return nil
 }
 
@@ -86,9 +99,9 @@ func (d *Driver) CreateEndpoint(rq *network.CreateEndpointRequest) (*network.Cre
 		vxcanHidden:    fmt.Sprintf("%s%s", hIfPrefix, eid[:6]),
 		vxcanContainer: fmt.Sprintf("%s%s", cIfPrefix, eid[:6]),
 	}
-	net.enpoints[eid] = ep
+	net.endpoints[eid] = ep
 
-	err := ipw.CreateInterfacePair(net.enpoints[eid].vxcanHidden, net.enpoints[eid].vxcanContainer, ipw.Vxcan).Run()
+	err := ipw.CreateInterfacePair(net.endpoints[eid].vxcanHidden, net.endpoints[eid].vxcanContainer, ipw.Vxcan).Run()
 	if err != nil {
 		return nil, fmt.Errorf("CreateEndpoint: error creating interface pair : %s", err.Error())
 	}
@@ -108,18 +121,13 @@ func (d *Driver) DeleteEndpoint(rq *network.DeleteEndpointRequest) error {
 	nid := rq.NetworkID
 	log.Println("DeleteEndpoint: DeleteEndpoint received")
 
-	net, ok := d.networks[nid]
+	net, ep, err := NetworkAndEndpointById(nid, eid, d.networks)
 
-	if !ok {
-		return fmt.Errorf("DeleteEndpoint: network with id %s does not exist", nid)
+	if err != nil {
+		return fmt.Errorf("DeleteEndpoint: %s", err.Error())
 	}
 
-	ep, ok := net.enpoints[eid]
-	if !ok {
-		return fmt.Errorf("DeleteEndpoint: endpoint with id %s does not exist", eid)
-	}
-
-	err := ipw.ExecCommandInNamespace(net.ns, *ipw.DeleteInterface(ep.vxcanHidden)).Run()
+	err = ipw.ExecCommandInNamespace(net.ns, *ipw.DeleteInterface(ep.vxcanHidden)).Run()
 	if err != nil {
 		return fmt.Errorf("error deleting interface pair %s:%s from hidden network namespace %s: %s", ep.vxcanHidden, ep.vxcanContainer, net.ns, err.Error())
 	}
@@ -128,26 +136,83 @@ func (d *Driver) DeleteEndpoint(rq *network.DeleteEndpointRequest) error {
 	return nil
 }
 
+func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
+	log.Println("Join: Join received")
+	nid, eid := rq.NetworkID, rq.EndpointID
+	net, ep, err := NetworkAndEndpointById(nid, eid, d.networks)
+
+	if err != nil {
+		return nil, fmt.Errorf("Join: %s", err.Error())
+	}
+
+	if net.opts.centralised {
+		// Connect hidden vxcan pair to vcan bus inside network namespace.
+		// 2 * N rules total for a network
+		cangww.AddRule(ep.vxcanHidden, net.vcan, true, net.opts.canfd, true)
+		cangww.AddRule(net.vcan, ep.vxcanHidden, true, net.opts.canfd, true)
+	} else {
+		// Connect containers to all existing containers using (N-1) * 2 cangw rules.
+		// (N choose 2) * 2 rules total for a network
+		for i, e := range net.endpoints {
+			if i == eid {
+				continue
+			}
+
+			err := cangww.AddRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true).Run()
+			if err != nil {
+				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanContainer, err.Error())
+			}
+
+			err = cangww.AddRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true).Run()
+			if err != nil {
+				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanContainer, err.Error())
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (d *Driver) Leave(rq *network.LeaveRequest) error {
+	log.Println("Leave: Leave received")
+	nid, eid := rq.NetworkID, rq.EndpointID
+
+	net, ep, err := NetworkAndEndpointById(nid, eid, d.networks)
+	if err != nil {
+		return fmt.Errorf("Leave: %s", err.Error())
+	}
+
+	if net.opts.centralised {
+		cangww.RemoveRule(ep.vxcanHidden, net.vcan, true, net.opts.canfd, true)
+		cangww.RemoveRule(net.vcan, ep.vxcanHidden, true, net.opts.canfd, true)
+	} else {
+		for i, e := range net.endpoints {
+			if i == eid {
+				continue
+			}
+
+			err := cangww.RemoveRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true).Run()
+			if err != nil {
+				return fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanContainer, err.Error())
+			}
+
+			err = cangww.RemoveRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true).Run()
+			if err != nil {
+				return fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanContainer, err.Error())
+			}
+		}
+	}
+	return nil
+}
+
+// unimplemented stubs
 func (d *Driver) EndpointInfo(*network.InfoRequest) (*network.InfoResponse, error) {
 	log.Println("EndpointInfo: EndpointInfo received")
 	return nil, nil
 }
 
-func (d *Driver) Join(*network.JoinRequest) (*network.JoinResponse, error) {
-	log.Println("Join: Join received")
-	return nil, nil
-}
-
-func (d *Driver) Leave(*network.LeaveRequest) error {
-	log.Println("Leave: Leave received")
-	return nil
-}
-
-// unimplemented stubs
 func (d *Driver) AllocateNetwork(rq *network.AllocateNetworkRequest) (*network.AllocateNetworkResponse, error) {
 	log.Println("AllocateNetwork: AllocateNetwork received")
-	rs := &network.AllocateNetworkResponse{Options: rq.Options}
-	return rs, nil
+	return nil, nil
 }
 
 func (d *Driver) FreeNetwork(*network.FreeNetworkRequest) error {
