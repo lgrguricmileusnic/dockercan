@@ -19,12 +19,23 @@ const (
 	Veth
 )
 
+type IfState int64
+
+const (
+	DOWN IfState = iota
+	UP
+)
+
 func (t IfType) String() string {
 	return []string{"vcan"}[t]
 }
 
 func (t IfPType) String() string {
 	return []string{"vxcan", "veth"}[t]
+}
+
+func (t IfState) String() string {
+	return []string{"down", "up"}[t]
 }
 
 func CreateNetworkNamespace(name string) *exec.Cmd {
@@ -34,13 +45,18 @@ func CreateNetworkNamespace(name string) *exec.Cmd {
 func DeleteNetworkNamespace(name string) *exec.Cmd {
 	return exec.Command(ip, "netns", "del", name)
 }
+
 func CreateInterface(ifName string, t IfType) *exec.Cmd {
 	return exec.Command(ip, "link", "add", ifName, "type", t.String())
 }
+
 func CreateInterfacePair(ifName, peerName string, t IfPType) *exec.Cmd {
 	return exec.Command(ip, "link", "add", ifName, "type", t.String(), "peer", "name", peerName)
 }
 
+func SetInterfaceState(ifName string, t IfState) *exec.Cmd {
+	return exec.Command(ip, "link", "set", "dev", ifName, t.String())
+}
 func DeleteInterface(ifName string) *exec.Cmd {
 	return exec.Command(ip, "link", "del", ifName)
 }
