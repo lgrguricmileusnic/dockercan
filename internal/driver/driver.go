@@ -62,11 +62,18 @@ func (d *Driver) CreateNetwork(rq *network.CreateNetworkRequest) error {
 		return nil
 	}
 
-	err = ipw.CreateInterface(vcanName, ipw.Vcan).Run()
+	cmd := *ipw.CreateInterface(vcanName, ipw.Vcan)
+	err = ipw.ExecCommandInNamespace(nsName, cmd).Run()
 	if err != nil {
 		return fmt.Errorf("CreateNetwork: error creating virtual bus interface in namespace %s: %s", nsName, err.Error())
 	}
 
+	cmd = *ipw.SetInterfaceState(vcanName, ipw.UP)
+	err = ipw.ExecCommandInNamespace(nsName, cmd).Run()
+
+	if err != nil {
+		return fmt.Errorf("CreateNetwork: error changing virtual bus interface state in namespace %s: %s", nsName, err.Error())
+	}
 	return nil
 }
 
@@ -99,11 +106,15 @@ func (d *Driver) CreateEndpoint(rq *network.CreateEndpointRequest) (*network.Cre
 		vxcanHidden:    fmt.Sprintf("%s%s", hIfPrefix, eid[:6]),
 		vxcanContainer: fmt.Sprintf("%s%s", cIfPrefix, eid[:6]),
 	}
-	net.endpoints[eid] = ep
 
-	err := ipw.CreateInterfacePair(net.endpoints[eid].vxcanHidden, net.endpoints[eid].vxcanContainer, ipw.Vxcan).Run()
+	err := ipw.CreateInterfacePair(ep.vxcanHidden, ep.vxcanContainer, ipw.Vxcan).Run()
 	if err != nil {
-		return nil, fmt.Errorf("CreateEndpoint: error creating interface pair : %s", err.Error())
+		return nil, fmt.Errorf("CreateEndpoint: error creating interface pair %s:%s: %s", ep.vxcanHidden, ep.vxcanContainer, err.Error())
+	}
+
+	err = ipw.SetInterfaceState(ep.vxcanHidden, ipw.UP).Run()
+	if err != nil {
+		return nil, fmt.Errorf("CreateEndpoint: error setting interface %s state %s: %s", ep.vxcanHidden, ipw.UP.String(), err.Error())
 	}
 
 	err = ipw.MoveInterfaceToNamespace(ep.vxcanHidden, net.ns).Run()
@@ -111,7 +122,13 @@ func (d *Driver) CreateEndpoint(rq *network.CreateEndpointRequest) (*network.Cre
 		return nil, fmt.Errorf("CreateEndpoint: error moving interface %s to namespace %s: %s", ep.vxcanHidden, net.ns, err.Error())
 	}
 
-	log.Printf("CreateEndpoint: Created endpoint received")
+	cmd := *ipw.SetInterfaceState(ep.vxcanHidden, ipw.UP)
+	err = ipw.ExecCommandInNamespace(net.ns, cmd).Run()
+	if err != nil {
+		return nil, fmt.Errorf("CreateEndpoint: error setting interface %s state %s in namespace %s: %s", ep.vxcanContainer, ipw.UP.String(), net.ns, err.Error())
+	}
+
+	net.endpoints[eid] = ep
 
 	return &network.CreateEndpointResponse{}, nil
 }
@@ -148,8 +165,17 @@ func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
 	if net.opts.centralised {
 		// Connect hidden vxcan pair to vcan bus inside network namespace.
 		// 2 * N rules total for a network
-		cangww.AddRule(ep.vxcanHidden, net.vcan, true, net.opts.canfd, true)
-		cangww.AddRule(net.vcan, ep.vxcanHidden, true, net.opts.canfd, true)
+		cmd := *cangww.AddRule(ep.vxcanHidden, net.vcan, true, net.opts.canfd, false)
+		err = ipw.ExecCommandInNamespace(net.ns, cmd).Run()
+		if err != nil {
+			return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, net.vcan, err.Error())
+		}
+
+		cmd = *cangww.AddRule(net.vcan, ep.vxcanHidden, true, net.opts.canfd, false)
+		err = ipw.ExecCommandInNamespace(net.ns, cmd).Run()
+		if err != nil {
+			return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", net.vcan, ep.vxcanHidden, err.Error())
+		}
 	} else {
 		// Connect containers to all existing containers using (N-1) * 2 cangw rules.
 		// (N choose 2) * 2 rules total for a network
@@ -158,13 +184,13 @@ func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
 				continue
 			}
 
-			cmd := *cangww.AddRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true)
+			cmd := *cangww.AddRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, false)
 			err := ipw.ExecCommandInNamespace(net.ns, cmd).Run()
 			if err != nil {
 				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanHidden, err.Error())
 			}
 
-			cmd = *cangww.AddRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true)
+			cmd = *cangww.AddRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, false)
 			err = ipw.ExecCommandInNamespace(net.ns, cmd).Run()
 			if err != nil {
 				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanHidden, err.Error())
@@ -174,7 +200,7 @@ func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
 
 	ifName := network.InterfaceName{
 		SrcName:   ep.vxcanContainer,
-		DstPrefix: hIfPrefix,
+		DstPrefix: cIfPrefix,
 	}
 
 	return &network.JoinResponse{InterfaceName: ifName}, nil
