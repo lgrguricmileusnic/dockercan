@@ -158,18 +158,26 @@ func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
 				continue
 			}
 
-			err := cangww.AddRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true).Run()
+			cmd := *cangww.AddRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true)
+			err := ipw.ExecCommandInNamespace(net.ns, cmd).Run()
 			if err != nil {
 				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanHidden, err.Error())
 			}
 
-			err = cangww.AddRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true).Run()
+			cmd = *cangww.AddRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true)
+			err = ipw.ExecCommandInNamespace(net.ns, cmd).Run()
 			if err != nil {
 				return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanHidden, err.Error())
 			}
 		}
 	}
-	return nil, nil
+
+	ifName := network.InterfaceName{
+		SrcName:   ep.vxcanContainer,
+		DstPrefix: hIfPrefix,
+	}
+
+	return &network.JoinResponse{InterfaceName: ifName}, nil
 }
 
 func (d *Driver) Leave(rq *network.LeaveRequest) error {
