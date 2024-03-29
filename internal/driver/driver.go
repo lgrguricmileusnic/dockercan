@@ -1,11 +1,16 @@
 package driver
 
 import (
-	"dockercan/internal/wrappers"
+	"dockercan/internal/wrappers/ipw"
 	"fmt"
 	"log"
 
 	"github.com/docker/go-plugins-helpers/network"
+)
+
+const (
+	hIfPrefix string = "hcan_"
+	cIfPrefix string = "ccan_"
 )
 
 type Endpoint struct {
@@ -16,6 +21,7 @@ type Endpoint struct {
 type Network struct {
 	ns       string
 	enpoints map[string]Endpoint
+	opts     NetworkOptions
 }
 
 type Driver struct {
@@ -30,7 +36,6 @@ func NewDriver() (*Driver, error) {
 func (d *Driver) GetCapabilities() (*network.CapabilitiesResponse, error) {
 	log.Println("GetCapabilities: received")
 	rs := &network.CapabilitiesResponse{Scope: network.LocalScope}
-
 	return rs, nil
 }
 
@@ -41,12 +46,14 @@ func (d *Driver) CreateNetwork(rq *network.CreateNetworkRequest) error {
 
 	log.Printf("CreateNetwork: Creating network namespace %s", nsName)
 
-	err := wrappers.CreateNetworkNamespace(nsName)
+	err := ipw.CreateNetworkNamespace(nsName).Run()
 	if err != nil {
 		return fmt.Errorf("CreateNetwork: error creating network namespace: %s", err.Error())
 	}
 
-	d.networks[rq.NetworkID] = Network{nsName, map[string]Endpoint{}}
+	opts := ExtractNetworkOptions(rq.Options)
+
+	d.networks[rq.NetworkID] = Network{nsName, map[string]Endpoint{}, opts}
 	return nil
 }
 
@@ -56,7 +63,7 @@ func (d *Driver) DeleteNetwork(rq *network.DeleteNetworkRequest) error {
 	log.Println("DeleteNetwork: DeleteNetwork received")
 	log.Printf("DeleteNetwork: Deleting network namespace %s", nsName)
 
-	err := wrappers.DeleteNetworkNamespace(nsName)
+	err := ipw.DeleteNetworkNamespace(nsName).Run()
 	if err != nil {
 		return fmt.Errorf("DeleteNetwork: error deleteing network namespace: %s", err.Error())
 	}
@@ -74,19 +81,24 @@ func (d *Driver) CreateEndpoint(rq *network.CreateEndpointRequest) (*network.Cre
 	if !ok {
 		return nil, fmt.Errorf("CreateEndpoint: network with id %s does not exist", nid)
 	}
-	ep := Endpoint{vxcanHidden: fmt.Sprintf("hcan%s", eid[:6]), vxcanContainer: fmt.Sprintf("ccan%s", eid[:6])}
 
+	ep := Endpoint{
+		vxcanHidden:    fmt.Sprintf("%s%s", hIfPrefix, eid[:6]),
+		vxcanContainer: fmt.Sprintf("%s%s", cIfPrefix, eid[:6]),
+	}
 	net.enpoints[eid] = ep
 
-	err := wrappers.CreateInterfacePair(net.enpoints[eid].vxcanHidden, net.enpoints[eid].vxcanContainer, wrappers.Vxcan)
+	err := ipw.CreateInterfacePair(net.enpoints[eid].vxcanHidden, net.enpoints[eid].vxcanContainer, ipw.Vxcan).Run()
 	if err != nil {
 		return nil, fmt.Errorf("CreateEndpoint: error creating interface pair : %s", err.Error())
 	}
 
-	err = wrappers.MoveInterfaceToNamespace(ep.vxcanHidden, net.ns)
+	err = ipw.MoveInterfaceToNamespace(ep.vxcanHidden, net.ns).Run()
 	if err != nil {
 		return nil, fmt.Errorf("CreateEndpoint: error moving interface %s to namespace %s: %s", ep.vxcanHidden, net.ns, err.Error())
 	}
+
+	log.Printf("CreateEndpoint: Created endpoint received")
 
 	return &network.CreateEndpointResponse{}, nil
 }
@@ -102,11 +114,15 @@ func (d *Driver) DeleteEndpoint(rq *network.DeleteEndpointRequest) error {
 		return fmt.Errorf("DeleteEndpoint: network with id %s does not exist", nid)
 	}
 
-	_, ok = net.enpoints[eid]
+	ep, ok := net.enpoints[eid]
 	if !ok {
 		return fmt.Errorf("DeleteEndpoint: endpoint with id %s does not exist", eid)
 	}
 
+	err := ipw.ExecCommandInNamespace(net.ns, *ipw.DeleteInterface(ep.vxcanHidden)).Run()
+	if err != nil {
+		return fmt.Errorf("error deleting interface pair %s:%s from hidden network namespace %s: %s", ep.vxcanHidden, ep.vxcanContainer, net.ns, err.Error())
+	}
 	delete(d.networks, eid)
 
 	return nil
