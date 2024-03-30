@@ -1,15 +1,15 @@
 SRC_DIR=./cmd/dockercan
 
-BINARY_DIR=./bin/dockercan/
+BUILD_DIR=./build/dockercan/
 BINARY_NAME=dockercan
 
 SCRIPTS_DIR=./scripts/
 
 build:
-	go build -o ${BINARY_DIR}${BINARY_NAME} ${SRC_DIR}
+	go build -o ${BUILD_DIR}${BINARY_NAME} ${SRC_DIR}
 
 run: build
-	sudo ${BINARY_DIR}${BINARY_NAME}
+	sudo ${BUILD_DIR}${BINARY_NAME}
 
 install: build
 	sudo ./scripts/install/install.sh
@@ -18,5 +18,5 @@ uninstall:
 	sudo ./scripts/uninstall/uninstall.sh
 
 clean:
-	rm -fdr ${BINARY_DIR}
+	rm -fdr ${BUILD_DIR}
 	go clean

@@ -2,7 +2,7 @@
 # This script should be started using Makefile from repo root directory
 
 install () {
-    cp ./bin/dockercan/dockercan           /usr/lib/docker/dockercan
+    cp ./build/dockercan/dockercan         /usr/lib/docker/dockercan
     cp ./scripts/install/dockercan.service /etc/systemd/system/dockercan.service
 
     systemctl daemon-reload
