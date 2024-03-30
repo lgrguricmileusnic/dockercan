@@ -1,0 +1,62 @@
+services:
+  powertrain:
+    image: alpine
+    networks: [ can2 ]
+    tty: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add can-utils
+        apk add bash
+        tail -f /dev/null
+
+  BMS:
+    image: alpine
+    networks: [ can2 ]
+    tty: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add can-utils
+        apk add bash
+        tail -f /dev/null
+
+  TCU:
+    image: alpine
+    networks: [ can1 ]
+    tty: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add can-utils
+        apk add bash
+        tail -f /dev/null
+  gw:
+    image: alpine
+    networks: 
+      - can2
+      - can1
+    tty: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        apk add can-utils
+        apk add bash
+        tail -f /dev/null
+
+networks:
+  can2:
+    driver: dockercan
+    driver_opts:
+      centralised: "false"
+      canfd: "true"
+
+  can1:
+    driver: dockercan
+    driver_opts:
+      centralised: "false"
+      canfd: "true"  
