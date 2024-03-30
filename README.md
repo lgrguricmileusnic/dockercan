@@ -63,7 +63,7 @@ Example compose file available in [deployments/example_compose](https://github.c
     ```
 - `false` : (default)
   - Interconnects all containers using vxcan and cangw, resulting in a greater number of cangw rules.
-  - requires `max_hops=1`
+  - requires setting `can_gw` kernel module parameter `max_hops=1` (default)
 
 **canfd**
 - enables or disables CAN FD support (default: `false`)
