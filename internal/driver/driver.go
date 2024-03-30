@@ -177,7 +177,7 @@ func (d *Driver) Join(rq *network.JoinRequest) (*network.JoinResponse, error) {
 			return nil, fmt.Errorf("Join: error adding cangw rule %s -> %s: %s", net.vcan, ep.vxcanHidden, err.Error())
 		}
 	} else {
-		// Connect containers to all existing containers using (N-1) * 2 cangw rules.
+		// Connect container to all other existing containers using (N-1) * 2 cangw rules.
 		// (N choose 2) * 2 rules total for a network
 		for i, e := range net.endpoints {
 			if i == eid {
