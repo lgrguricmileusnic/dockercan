@@ -18,8 +18,15 @@ Wraps around the `ip` command for configuring interfaces and namespaces.
 ### Run plugin without installation
 
 ```
-make run
+make run # Starts remote driver at localhost:4343
 ```
+
+**OR**
+
+```
+make run ADDR=<address>:<port>
+```
+
 ### Install plugin
 
 #### Systemd service installation
@@ -30,6 +37,9 @@ cd dockercan
 make install
 ```
 And follow setup prompts.
+
+This installs and starts the plugin at `localhost:4343`. Edit dockercan.service file to modify address and port.
+
 
 ##### Uninstall
 

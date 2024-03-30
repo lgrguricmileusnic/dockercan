@@ -5,13 +5,15 @@ BINARY_NAME=dockercan
 
 SCRIPTS_DIR=./scripts/
 
+ADDR="127.0.0.1:4343"
+
 .PHONY: build
 
 build:
 	go build -o ${BUILD_DIR}${BINARY_NAME} ${SRC_DIR}
 
 run: build
-	@sudo ${BUILD_DIR}${BINARY_NAME}
+	@sudo ${BUILD_DIR}${BINARY_NAME} -addr ${ADDR}
 
 install: build
 	@sudo ./scripts/install/install.sh
