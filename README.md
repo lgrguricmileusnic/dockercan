@@ -2,7 +2,7 @@
 ## About
 Docker network plugin for connecting containers over vcan and vxcan interfaces. 
 
-Rewritten [can4docker](https://gitlab.com/chgans/can4docker/-/tree/master/can4docker) using [offical Go helper](https://github.com/docker/go-plugins-helpers/tree/master/network). Added different ways of connecting containers, CAN FD support. Hides created interfaces from the user in a separate network namespace.
+Rewritten [can4docker](https://gitlab.com/chgans/can4docker/-/tree/master/can4docker) using [offical Go helper](https://github.com/docker/go-plugins-helpers/tree/master/network). Added different ways of connecting containers and CAN FD support. Plugin also hides created interfaces from the user in a separate network namespace.
 
 ## Requirements
 
