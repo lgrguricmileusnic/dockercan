@@ -1,0 +1,12 @@
+[Unit]
+Description=Dockercan network plugin
+Before=docker.service
+After=network.target
+Requires=docker.service
+
+[Service]
+User=root
+ExecStart=/usr/lib/docker/dockercan
+
+[Install]
+WantedBy=multi-user.target
