@@ -26,7 +26,7 @@ func main() {
 
 	log.Printf("Starting docker CAN driver at %s\n", ip)
 
-	err = h.ServeTCP("dockercan", ip, "", nil)
+	err = h.ServeTCP("dockercan_remote", ip, "", nil)
 
 	if err != nil {
 		log.Fatal(err)

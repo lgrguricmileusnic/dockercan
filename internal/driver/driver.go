@@ -125,7 +125,7 @@ func (d *Driver) DeleteNetwork(rq *network.DeleteNetworkRequest) error {
 	log.Println("DeleteNetwork: DeleteNetwork received")
 
 	if net.host_if != "" {
-		log.Printf("DeleteNetwork: Deleting host interface %s", net.ns)
+		log.Printf("DeleteNetwork: Deleting host interface %s", net.host_if)
 		err := ipw.DeleteInterface(net.host_if).Run()
 		if err != nil {
 			return fmt.Errorf("DeleteNetwork: error deleting host interface: %s", err.Error())
