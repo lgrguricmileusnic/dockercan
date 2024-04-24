@@ -53,10 +53,12 @@ networks:
     driver: dockercan
     driver_opts:
       centralised: "false"
-      canfd: "true"
+      canfd:       "true"
+      host_if:     "dcan0"
 
   can1:
     driver: dockercan
     driver_opts:
       centralised: "false"
-      canfd: "true"  
+      canfd:       "true"
+      host_if:     "dcan1"  

@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"dockercan/internal/wrappers/ipw"
 	"fmt"
 	"log"
 )
@@ -8,12 +9,13 @@ import (
 type NetworkOptions struct {
 	centralised bool
 	canfd       bool
+	host_if     string
 }
 
 func ExtractNetworkOptions(options map[string]interface{}) (opts NetworkOptions) {
-	opts = NetworkOptions{centralised: false, canfd: false}
-	rqOpts, ok := options["com.docker.network.generic"].(map[string]interface{})
+	opts = NetworkOptions{centralised: false, canfd: false, host_if: ""}
 
+	rqOpts, ok := options["com.docker.network.generic"].(map[string]interface{})
 	// if request contains no options, assume default can_gw kernel module configuration
 	if !ok {
 		log.Printf("Error extracting options")
@@ -24,19 +26,26 @@ func ExtractNetworkOptions(options map[string]interface{}) (opts NetworkOptions)
 	// if request contains no 'centralised' option, assume default can_gw kernel module configuration
 	if !ok {
 		log.Printf("No centralised option, defaulting to p2p")
-		return
+	} else {
+		opts.centralised = strToBool(cs)
 	}
-
-	opts.centralised = strToBool(cs)
 
 	fds, ok := rqOpts["canfd"].(string)
 	// if request contains no 'canfd' option, assume default can_gw
 	if !ok {
 		log.Printf("No canfd option, defaulting to regular CAN")
-		return
+	} else {
+		opts.canfd = strToBool(fds)
 	}
 
-	opts.canfd = strToBool(fds)
+	hs, ok := rqOpts["host_if"].(string)
+
+	if !ok {
+		log.Printf("No host_if option, network will be accessible only through separate namespace.")
+	} else {
+		opts.host_if = hs
+	}
+
 	return
 }
 
@@ -58,4 +67,13 @@ func NetworkAndEndpointById(nid, eid string, networks map[string]Network) (*Netw
 
 	return &net, &ep, nil
 
+}
+
+func InterfaceCleanupOnError(ifName string, err *error) {
+
+	if err == nil {
+		return
+	}
+	log.Printf("Cleaning up interface: %s", ifName)
+	_ = ipw.DeleteInterface(ifName).Run()
 }
