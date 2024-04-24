@@ -278,12 +278,12 @@ func (d *Driver) Leave(rq *network.LeaveRequest) error {
 
 			err := cangww.RemoveRule(ep.vxcanHidden, e.vxcanHidden, true, net.opts.canfd, true).Run()
 			if err != nil {
-				return fmt.Errorf("Join: error removing cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanContainer, err.Error())
+				return fmt.Errorf("Leave: error removing cangw rule %s -> %s: %s", ep.vxcanHidden, e.vxcanContainer, err.Error())
 			}
 
 			err = cangww.RemoveRule(e.vxcanHidden, ep.vxcanHidden, true, net.opts.canfd, true).Run()
 			if err != nil {
-				return fmt.Errorf("Join: error removing cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanContainer, err.Error())
+				return fmt.Errorf("Leave: error removing cangw rule %s -> %s: %s", e.vxcanHidden, ep.vxcanContainer, err.Error())
 			}
 		}
 	}
