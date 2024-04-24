@@ -1,0 +1,21 @@
+{
+    "description": "Creates socketcan based networks",
+    "documentation": "https://github.com/lgrguricmileusnic/dockercan/tree/master",
+    "entrypoint": [
+        "/dockercan"
+    ],
+    "network": {
+        "type": "host"
+    },
+    "interface": {
+        "types": [
+            "docker.networkdriver/1.0"
+        ],
+        "socket": "dockercan.sock"
+    },
+    "linux": {
+        "capabilities": [
+            "CAP_NET_ADMIN"
+        ]
+    }
+}

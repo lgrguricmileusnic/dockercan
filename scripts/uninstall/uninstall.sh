@@ -6,7 +6,7 @@ uninstall () {
     systemctl stop dockercan.service
 
     rm /etc/systemd/system/dockercan.service
-    rm /usr/lib/docker/dockercan
+    rm /usr/lib/docker/dockercan_tcp
 
     systemctl daemon-reload
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"dockercan/internal/driver"
@@ -9,6 +10,12 @@ import (
 )
 
 func main() {
+
+	ip := "127.0.0.1:4343"
+
+	flag.StringVar(&ip, "addr", ip, "IPv4 address with port")
+
+	flag.Parse()
 	dPtr, err := driver.NewDriver()
 
 	if err != nil {
@@ -16,7 +23,10 @@ func main() {
 	}
 
 	h := network.NewHandler(dPtr)
-	err = h.ServeUnix("/run/docker/plugins/dockercan.sock", 0)
+
+	log.Printf("Starting docker CAN driver at %s\n", ip)
+
+	err = h.ServeTCP("dockercan", ip, "", nil)
 
 	if err != nil {
 		log.Fatal(err)
