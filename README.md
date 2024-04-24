@@ -52,7 +52,7 @@ make uninstall
 #### Docker CLI
 
 ```
-docker network create -o centralised={true|false} -o canfd={true|false} --driver dockercan <network_name>
+docker network create -o centralised={true|false} -o canfd={true|false} -o host_if=dcan0 --driver dockercan <network_name>
 ```
 
 #### Docker Compose
@@ -62,6 +62,7 @@ Example compose file available in [deployments/example_compose](https://github.c
 **Available driver options:**
 - centralised
 - canfd
+- hostif
 
 **centralised:**
 - `true`  :
@@ -78,3 +79,5 @@ Example compose file available in [deployments/example_compose](https://github.c
 **canfd**
 - enables or disables CAN FD support (default: `false`)
 
+**hostif**
+- specify name for interface on host
