@@ -29,7 +29,14 @@ make run ADDR=<address>:<port>
 
 ### Install plugin
 
-#### Systemd service installation
+#### Install plugin from dockerhub
+
+```
+docker plugin install lovrogm/dockercan:latest
+docker plugin enable  lovrogm/dockercan:latest
+```
+
+#### Build and install as a Systemd service
 Run commands:
 ```bash
 git clone https://github.com/lgrguricmileusnic/dockercan.git
@@ -51,12 +58,20 @@ make uninstall
 
 #### Docker CLI
 
+##### Dockerhub installation
 ```
-docker network create -o centralised={true|false} -o canfd={true|false} -o host_if=dcan0 --driver dockercan <network_name>
+docker network create -o centralised={true|false} -o canfd={true|false} -o host_if=<if_name> --driver lovrogm/dockerhub:latest <network_name>
 ```
 
+##### Systemd installation or manual run
+```
+docker network create -o centralised={true|false} -o canfd={true|false} -o host_if=dcan0 --driver dockercan_remote <network_name>
+```
+
+##### 
+
 #### Docker Compose
-Example compose file available in [deployments/example_compose](https://github.com/lgrguricmileusnic/dockercan/blob/master/deployments/example_compose/compose.yml).
+Example compose files are available in [deployments/example_compose](https://github.com/lgrguricmileusnic/dockercan/blob/master/deployments/example_compose/compose.yml).
 
 ### Driver options
 **Available driver options:**
