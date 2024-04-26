@@ -200,7 +200,7 @@ func (d *Driver) DeleteEndpoint(rq *network.DeleteEndpointRequest) error {
 	if err != nil {
 		return fmt.Errorf("error deleting interface pair %s:%s from hidden network namespace %s: %s", ep.vxcanHidden, ep.vxcanContainer, net.ns, err.Error())
 	}
-	delete(d.networks, eid)
+	delete(d.networks[nid].endpoints, eid)
 
 	return nil
 }
