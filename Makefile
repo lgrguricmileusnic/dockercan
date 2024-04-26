@@ -19,10 +19,10 @@ dockercan_remote:
 dockercan:
 	go build -o ${BUILD_DIR}${DRIVER} ${SRC_DIR}${DRIVER}
 
-run: build
+run: dockercan_remote
 	@sudo ${BUILD_DIR}${DRIVER_REMOTE} -addr ${ADDR}
 
-install: build
+install: dockercan_remote
 	@sudo ./scripts/install/install.sh
 
 uninstall:
