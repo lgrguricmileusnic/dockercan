@@ -77,7 +77,7 @@ Example compose files are available in [deployments/example_compose](https://git
 **Available driver options:**
 - centralised
 - canfd
-- hostif
+- host_if
 
 **centralised:**
 - `true`  :
@@ -94,5 +94,5 @@ Example compose files are available in [deployments/example_compose](https://git
 **canfd**
 - enables or disables CAN FD support (default: `false`)
 
-**hostif**
+**host_if**
 - specify name for interface on host
